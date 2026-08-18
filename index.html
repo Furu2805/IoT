@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Monitoring Dashboard</title>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ===== RESET & BASE ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: #0b1120;
+            color: #f1f5f9;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            outline: none;
+            transition: 0.2s;
+        }
+
+        input,
+        select {
+            font-family: 'Inter', sans-serif;
+            outline: none;
+        }
+
+        /* ===== LOGIN ===== */
+        #login-page {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+            background: linear-gradient(135deg, #0b1120 0%, #1e293b 100%);
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 999;
+        }
+
+        .login-card {
+            background: #1e293b;
+            padding: 40px 30px;
+            border-radius: 12px;
+            width: 380px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+            text-align: center;
+            border: 1px solid #334155;
+        }
+
+        .login-card h2 {
+            color: #f1f5f9;
+            margin-bottom: 10px;
+        }
+
+        .login-card p {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .login-card input {
+            width: 100%;
+            padding: 12px 16px;
+            margin-bottom: 15px;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            background: #0b1120;
+            color: #f1f5f9;
+        }
+
+        .login-card input::placeholder {
+            color: #64748b;
+        }
+
+        .login-card button {
+            width: 100%;
+            padding: 12px;
+            background: #3b82f6;
+            color: white;
+            font-weight: 600;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        .login-card button:hover {
+            background: #2563eb;
+        }
+
+        .login-error {
+            color: #ef4444;
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        /* ===== APP CONTAINER ===== */
+        #app-container {
+            display: none;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: 260px;
+            background: #0f172a;
+            color: #94a3b8;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 0;
+            height: 100vh;
+            border-right: 1px solid #1e293b;
+        }
+
+        .sidebar .logo {
+            padding: 0 24px 30px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #f1f5f9;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .sidebar .logo i {
+            font-size: 24px;
+            color: #3b82f6;
+        }
+
+        .sidebar .menu {
+            flex: 1;
+            padding: 0 16px;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #94a3b8;
+        }
+
+        .menu-item:hover {
+            background: #1e293b;
+            color: #f1f5f9;
+        }
+
+        .menu-item.active {
+            background: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4);
+        }
+
+        .sidebar-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sidebar-footer .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .sidebar-footer .info {
+            flex: 1;
+        }
+
+        .sidebar-footer .info .name {
+            font-size: 14px;
+            color: #f1f5f9;
+        }
+
+        .sidebar-footer .info .role {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .logout-btn {
+            cursor: pointer;
+            font-size: 14px;
+            color: #64748b;
+            transition: 0.2s;
+        }
+
+        .logout-btn:hover {
+            color: #ef4444;
+        }
+
+        /* ===== MAIN CONTENT ===== */
+        .main-content {
+            flex: 1;
+            padding: 24px 32px;
+            background: #0b1120;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ===== PAGES ===== */
+        .page-content {
+            display: none;
+            height: 100%;
+            flex-direction: column;
+        }
+
+        .page-content.active {
+            display: flex;
+        }
+
+        .page-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #f1f5f9;
+            margin-bottom: 4px;
+        }
+
+        .page-desc {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        /* ===== DASHBOARD ===== */
+        #dashboard-page .page-title,
+        #dashboard-page .page-desc {
+            display: none;
+        }
+
+        .dashboard-top {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 16px;
+            height: 110px;
+            flex-shrink: 0;
+        }
+
+        .stat-card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155;
+            color: #f1f5f9;
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+            color: #94a3b8;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #f1f5f9;
+        }
+
+        .stat-card .icon {
+            font-size: 28px;
+            opacity: 0.8;
+        }
+
+        .card-blue {
+            background: rgba(59, 130, 246, 0.15);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .card-blue .value,
+        .card-blue .label {
+            color: #93c5fd;
+        }
+
+        .card-blue .icon {
+            color: #3b82f6;
+        }
+
+        .card-pink {
+            background: rgba(219, 39, 119, 0.15);
+            border-color: rgba(219, 39, 119, 0.3);
+        }
+
+        .card-pink .value,
+        .card-pink .label {
+            color: #f9a8d4;
+        }
+
+        .card-pink .icon {
+            color: #ec4899;
+        }
+
+        .card-yellow {
+            background: rgba(202, 138, 4, 0.15);
+            border-color: rgba(202, 138, 4, 0.3);
+        }
+
+        .card-yellow .value,
+        .card-yellow .label {
+            color: #fde68a;
+        }
+
+        .card-yellow .icon {
+            color: #eab308;
+        }
+
+        /* ===== DASHBOARD BOTTOM ===== */
+        .dashboard-bottom {
+            flex: 1;
+            display: flex;
+            gap: 16px;
+            overflow: hidden;
+            flex-wrap: nowrap;
+            min-height: 0;
+        }
+
+        .chart-container {
+            flex: 2.5;
+            min-width: 0;
+            min-height: 0;
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .device-control-panel {
+            flex: 1;
+            min-width: 0;
+            min-height: 0;
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-bottom {
+                flex-direction: column;
+                overflow-y: auto;
+            }
+
+            .chart-container {
+                flex: 1 1 50%;
+                min-height: 250px;
+            }
+
+            .device-control-panel {
+                flex: 1 1 auto;
+                min-height: 150px;
+            }
+        }
+
+        .device-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #334155;
+        }
+
+        .device-item:last-child {
+            border-bottom: none;
+        }
+
+        .device-info h5 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 2px;
+            color: #f1f5f9;
+        }
+
+        .device-info p {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        /* Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #334155;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: #10b981;
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(20px);
+        }
+
+        /* ===== TABLE STYLES ===== */
+        .filter-toolbar {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155;
+            margin-bottom: 16px;
+            flex-shrink: 0;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+
+        .filter-group input,
+        .filter-group select {
+            padding: 8px 12px;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            background: #0b1120;
+            color: #f1f5f9;
+            font-size: 14px;
+            min-width: 140px;
+        }
+
+        .btn-search {
+            background: #3b82f6;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 6px;
+            height: 38px;
+            font-weight: 600;
+        }
+
+        .btn-search:hover {
+            background: #2563eb;
+        }
+
+        .btn-reset {
+            background: #1e293b;
+            color: #94a3b8;
+            padding: 8px 20px;
+            border-radius: 6px;
+            height: 38px;
+            font-weight: 600;
+            border: 1px solid #334155;
+        }
+
+        .btn-reset:hover {
+            background: #334155;
+            color: #f1f5f9;
+        }
+
+        .table-wrapper {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 0 4px 12px 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155;
+            overflow: hidden;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .table-scroll-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 12px;
+        }
+
+        .table-scroll-box::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .table-scroll-box::-webkit-scrollbar-track {
+            background: #0f172a;
+            border-radius: 4px;
+        }
+
+        .table-scroll-box::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th {
+            text-align: left;
+            padding: 14px 16px;
+            background: #0f172a;
+            color: #94a3b8;
+            font-weight: 600;
+            border-bottom: 1px solid #334155;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #334155;
+            color: #f1f5f9;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .badge-on {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .badge-off {
+            background: rgba(148, 163, 184, 0.2);
+            color: #94a3b8;
+        }
+
+        .badge-loading {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 6px;
+            padding: 16px 20px 0 20px;
+            flex-shrink: 0;
+        }
+
+        .pagination button {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .pagination button.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        /* ===== PROFILE ===== */
+        .profile-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            height: calc(100% - 60px);
+        }
+
+        .profile-card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155;
+            color: #f1f5f9;
+        }
+
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 16px;
+            background: #3b82f6;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .profile-info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #334155;
+        }
+
+        .profile-info-item:last-child {
+            border: none;
+        }
+
+        .profile-label {
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .profile-value {
+            color: #f1f5f9;
+            font-weight: 600;
+        }
+
+        .link-item {
+            background: #0f172a;
+            padding: 16px 20px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: 0.2s;
+            border: 1px solid #1e293b;
+        }
+
+        .link-item:hover {
+            background: #1e293b;
+            border-color: #334155;
+        }
+
+        .link-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .link-icon {
+            width: 40px;
+            height: 40px;
+            background: #1e293b;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #3b82f6;
+            font-weight: 700;
+        }
+
+        .link-text h5 {
+            font-size: 14px;
+            margin-bottom: 2px;
+            color: #f1f5f9;
+        }
+
+        .link-text p {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .link-arrow {
+            color: #64748b;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- LOGIN -->
+    <div id="login-page">
+        <div class="login-card">
+            <h2><i class="fas fa-microchip" style="color: #3b82f6; margin-right: 8px;"></i>Sensor Monitor</h2>
+            <p>Đăng nhập để quản lý hệ thống IoT</p>
+            <input type="text" id="username" placeholder="Tên đăng nhập (admin)">
+            <input type="password" id="password" placeholder="Mật khẩu (admin)">
+            <button onclick="handleLogin()">Đăng nhập</button>
+            <div id="login-error" class="login-error">Sai thông tin đăng nhập!</div>
+        </div>
+    </div>
+
+    <!-- APP -->
+    <div id="app-container">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="logo"><i class="fas fa-microchip"></i> Sensor Monitor</div>
+            <div class="menu">
+                <div class="menu-item active" onclick="switchTab('dashboard', this)"><i class="fas fa-th-large"></i>
+                    Dashboard</div>
+                <div class="menu-item" onclick="switchTab('sensor', this)"><i class="fas fa-table"></i> Sensor Data
+                </div>
+                <div class="menu-item" onclick="switchTab('action', this)"><i class="fas fa-history"></i> Action History
+                </div>
+                <div class="menu-item" onclick="switchTab('profile', this)"><i class="fas fa-user"></i> Profile</div>
+            </div>
+            <div class="sidebar-footer">
+                <div class="avatar">A</div>
+                <div class="info">
+                    <div class="name">Administrator</div>
+                    <div class="role">admin</div>
+                </div>
+                <div class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i></div>
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="main-content">
+            <!-- DASHBOARD -->
+            <div id="dashboard-page" class="page-content active">
+                <div class="dashboard-top">
+                    <div class="stat-card card-blue">
+                        <div>
+                            <div class="label">Nhiệt độ</div>
+                            <div class="value" id="temp-value">27.2 <span style="font-size: 18px;">°C</span></div>
+                        </div>
+                        <i class="fas fa-temperature-high icon"></i>
+                    </div>
+                    <div class="stat-card card-pink">
+                        <div>
+                            <div class="label">Độ ẩm</div>
+                            <div class="value" id="humid-value">51.8 <span style="font-size: 18px;">%</span></div>
+                        </div>
+                        <i class="fas fa-tint icon"></i>
+                    </div>
+                    <div class="stat-card card-yellow">
+                        <div>
+                            <div class="label">Độ sáng</div>
+                            <div class="value" id="light-value">243.1 <span style="font-size: 18px;">lux</span></div>
+                        </div>
+                        <i class="fas fa-lightbulb icon"></i>
+                    </div>
+                </div>
+                <div class="dashboard-bottom">
+                    <div class="chart-container">
+                        <div class="chart-header"
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <div>
+                                <h5 style="font-size: 16px; margin-bottom: 4px; color: #f1f5f9;">Realtime Sensor Data
+                                </h5>
+                                <p style="font-size: 12px; color: #94a3b8;">Theo dõi dữ liệu cảm biến theo thời gian</p>
+                            </div>
+                            <span
+                                style="background: rgba(16,185,129,0.2); padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; color: #10b981;">
+                                <i class="fas fa-circle" style="font-size: 8px; margin-right: 4px;"></i> Live
+                            </span>
+                        </div>
+                        <div style="flex: 1; position: relative;">
+                            <canvas id="dashboardChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="device-control-panel">
+                        <h5 style="font-size: 16px; margin-bottom: 16px; color: #f1f5f9;">Device Status</h5>
+                        <div style="flex:1; overflow-y: auto;">
+                            <div class="device-item">
+                                <div class="device-info">
+                                    <h5>LED 01</h5>
+                                    <p>Lighting Device</p>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="led1" checked><span
+                                        class="slider"></span></label>
+                            </div>
+                            <div class="device-item">
+                                <div class="device-info">
+                                    <h5>Quạt</h5>
+                                    <p>Cooling Device</p>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="fan1"><span
+                                        class="slider"></span></label>
+                            </div>
+                            <div class="device-item">
+                                <div class="device-info">
+                                    <h5>Điều hòa</h5>
+                                    <p>Air Conditioner</p>
+                                </div>
+                                <label class="switch"><input type="checkbox" id="ac1" checked><span
+                                        class="slider"></span></label>
+                            </div>
+                        </div>
+                        <div
+                            style="margin-top: 8px; display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8;">
+                            <span><i class="fas fa-circle" style="color: #10b981; font-size: 8px;"></i> MQTT
+                                Broker</span>
+                            <span style="color: #10b981;">Connected</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DATA SENSOR -->
+            <div id="sensor-page" class="page-content">
+                <h2 class="page-title">Data Sensor</h2>
+                <p class="page-desc">Tra cứu dữ liệu cảm biến theo thời gian.</p>
+                <div class="filter-toolbar">
+                    <div class="filter-group"><label>Tìm kiếm</label><input type="text" id="sensor-search"
+                            placeholder="Nhập từ khóa..."></div>
+                    <div class="filter-group"><label>Loại cảm biến</label>
+                        <select id="sensor-type">
+                            <option value="all">Tất cả</option>
+                            <option value="temperature">Nhiệt độ</option>
+                            <option value="humidity">Độ ẩm</option>
+                            <option value="light">Ánh sáng</option>
+                        </select>
+                    </div>
+                    <div class="filter-group"><label>Từ ngày</label><input type="date" id="sensor-from-date"></div>
+                    <div class="filter-group"><label>Đến ngày</label><input type="date" id="sensor-to-date"></div>
+                    <div class="filter-group"><label>Sắp xếp</label>
+                        <select id="sensor-sort">
+                            <option value="desc">Mới nhất</option>
+                            <option value="asc">Cũ nhất</option>
+                        </select>
+                    </div>
+                    <button class="btn-search" onclick="renderSensorTable()">Tìm kiếm</button>
+                    <button class="btn-reset" onclick="resetSensorFilters()">Đặt lại</button>
+                </div>
+                <div class="table-wrapper">
+                    <div class="table-scroll-box">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Tên cảm biến</th>
+                                    <th>Loại</th>
+                                    <th>Giá trị</th>
+                                    <th>Đơn vị</th>
+                                    <th>Ngày</th>
+                                    <th>Giờ</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sensor-table-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="sensor-pagination"></div>
+                </div>
+            </div>
+
+            <!-- ACTION HISTORY -->
+            <div id="action-page" class="page-content">
+                <h2 class="page-title">Action History</h2>
+                <p class="page-desc">Lịch sử thao tác điều khiển thiết bị.</p>
+                <div class="filter-toolbar">
+                    <div class="filter-group"><label>Device</label>
+                        <select id="action-device">
+                            <option value="all">Tất cả</option>
+                            <option value="LED 01">LED 01</option>
+                            <option value="Quạt">Quạt</option>
+                            <option value="Điều hòa">Điều hòa</option>
+                        </select>
+                    </div>
+                    <div class="filter-group"><label>Status</label>
+                        <select id="action-status">
+                            <option value="all">Tất cả</option>
+                            <option value="ON">ON</option>
+                            <option value="OFF">OFF</option>
+                            <option value="LOADING">LOADING</option>
+                        </select>
+                    </div>
+                    <div class="filter-group"><label>Từ ngày</label><input type="date" id="action-from-date"></div>
+                    <div class="filter-group"><label>Đến ngày</label><input type="date" id="action-to-date"></div>
+                    <div class="filter-group"><label>Sắp xếp</label>
+                        <select id="action-sort">
+                            <option value="desc">Mới nhất</option>
+                            <option value="asc">Cũ nhất</option>
+                        </select>
+                    </div>
+                    <button class="btn-search" onclick="renderActionTable()">Tìm kiếm</button>
+                    <button class="btn-reset" onclick="resetActionFilters()">Đặt lại</button>
+                </div>
+                <div class="table-wrapper">
+                    <div class="table-scroll-box">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Device</th>
+                                    <th>Action</th>
+                                    <th>Status</th>
+                                    <th>Ngày</th>
+                                    <th>Time Action</th>
+                                    <th>Time Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="action-table-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="action-pagination"></div>
+                </div>
+            </div>
+
+            <!-- PROFILE -->
+            <div id="profile-page" class="page-content">
+                <h2 class="page-title">Profile</h2>
+                <p class="page-desc">Thông tin người dùng và tài liệu dự án.</p>
+                <div class="profile-grid">
+                    <div class="profile-card">
+                        <div class="profile-avatar">A</div>
+                        <h3 style="font-size: 24px; margin-bottom: 4px; color: #f1f5f9;">Administrator</h3>
+                        <p style="color: #3b82f6; font-weight: 500; font-size: 14px; margin-bottom: 16px;">Sinh viên /
+                            IoT Project</p>
+                        <div class="profile-info-item"><span class="profile-label">Họ tên</span><span
+                                class="profile-value">Lương Minh Toàn</span></div>
+                        <div class="profile-info-item"><span class="profile-label">Mã sinh viên</span><span
+                                class="profile-value">B23DCAT2997</span></div>
+                        <div class="profile-info-item"><span class="profile-label">Lớp</span><span
+                                class="profile-value">D23CQAT02</span></div>
+                        <div class="profile-info-item"><span class="profile-label">Username</span><span
+                                class="profile-value">admin</span></div>
+                    </div>
+                    <div class="profile-card">
+                        <div class="link-item">
+                            <div class="link-info">
+                                <div class="link-icon">GH</div>
+                                <div class="link-text">
+                                    <h5>GitHub</h5>
+                                    <p>Source code dự án</p>
+                                </div>
+                            </div><i class="fas fa-arrow-up-right-from-square link-arrow"></i>
+                        </div>
+                        <div class="link-item">
+                            <div class="link-info">
+                                <div class="link-icon">FG</div>
+                                <div class="link-text">
+                                    <h5>Figma</h5>
+                                    <p>Thiết kế giao diện</p>
+                                </div>
+                            </div><i class="fas fa-arrow-up-right-from-square link-arrow"></i>
+                        </div>
+                        <div class="link-item">
+                            <div class="link-info">
+                                <div class="link-icon">API</div>
+                                <div class="link-text">
+                                    <h5>Postman / Swagger</h5>
+                                    <p>API Documentation</p>
+                                </div>
+                            </div><i class="fas fa-arrow-up-right-from-square link-arrow"></i>
+                        </div>
+                        <div class="link-item">
+                            <div class="link-info">
+                                <div class="link-icon">PDF</div>
+                                <div class="link-text">
+                                    <h5>PDF Report</h5>
+                                    <p>Báo cáo đồ án tốt nghiệp</p>
+                                </div>
+                            </div><i class="fas fa-arrow-up-right-from-square link-arrow"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== LOGIN / LOGOUT =====
+        function handleLogin() {
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value.trim();
+            if (user === 'admin' && pass === 'admin') {
+                document.getElementById('login-page').style.display = 'none';
+                document.getElementById('app-container').style.display = 'flex';
+                document.getElementById('login-error').style.display = 'none';
+                initDashboardChart();
+                renderSensorTable();
+                renderActionTable();
+            } else {
+                document.getElementById('login-error').style.display = 'block';
+            }
+        }
+
+        function handleLogout() {
+            document.getElementById('app-container').style.display = 'none';
+            document.getElementById('login-page').style.display = 'flex';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        // ===== TAB SWITCHING =====
+        function switchTab(tabId, el) {
+            document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
+            el.classList.add('active');
+            document.querySelectorAll('.page-content').forEach(page => page.classList.remove('active'));
+            document.getElementById(tabId + '-page').classList.add('active');
+        }
+
+        // ===== CHART =====
+        let myChart = null;
+        function initDashboardChart() {
+            const ctx = document.getElementById('dashboardChart').getContext('2d');
+            if (myChart) myChart.destroy();
+            const labels = [];
+            const tempData = [], humidData = [], lightData = [];
+            const now = new Date();
+            for (let i = 11; i >= 0; i--) {
+                const d = new Date(now - i * 60000);
+                labels.push(d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }));
+                tempData.push(+(27 + Math.random() * 2).toFixed(1));
+                humidData.push(+(50 + Math.random() * 5).toFixed(1));
+                lightData.push(+(230 + Math.random() * 20).toFixed(1));
+            }
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Nhiệt độ', data: tempData, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, tension: 0.3, pointRadius: 3 },
+                        { label: 'Độ ẩm', data: humidData, borderColor: '#ec4899', backgroundColor: 'rgba(236,72,153,0.1)', fill: true, tension: 0.3, pointRadius: 3 },
+                        { label: 'Độ sáng', data: lightData, borderColor: '#eab308', backgroundColor: 'rgba(234,179,8,0.1)', fill: true, tension: 0.3, pointRadius: 3 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { color: '#94a3b8' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { borderDash: [5, 5], color: '#334155' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ===== SENSOR DATA =====
+        const sensorData = [
+            { id: '#006', name: 'Độ sáng', type: 'Light', val: '248.0', unit: 'lux', date: '2026-08-17', time: '13:18:06', status: 'Normal' },
+            { id: '#004', name: 'Nhiệt độ', type: 'Temperature', val: '27.4', unit: '°C', date: '2026-08-17', time: '13:18:05', status: 'Normal' },
+            { id: '#005', name: 'Độ ẩm', type: 'Humidity', val: '52.1', unit: '%', date: '2026-08-17', time: '13:18:05', status: 'Normal' },
+            { id: '#003', name: 'Độ sáng', type: 'Light', val: '243.1', unit: 'lux', date: '2026-08-17', time: '13:17:06', status: 'Normal' },
+            { id: '#001', name: 'Nhiệt độ', type: 'Temperature', val: '27.2', unit: '°C', date: '2026-08-17', time: '13:17:05', status: 'Normal' },
+            { id: '#002', name: 'Độ ẩm', type: 'Humidity', val: '51.8', unit: '%', date: '2026-08-17', time: '13:17:05', status: 'Normal' },
+            { id: '#009', name: 'Độ sáng', type: 'Light', val: '231.5', unit: 'lux', date: '2026-08-16', time: '09:20:11', status: 'Normal' },
+            { id: '#010', name: 'Nhiệt độ', type: 'Temperature', val: '26.9', unit: '°C', date: '2026-08-16', time: '09:20:10', status: 'Normal' },
+            { id: '#011', name: 'Độ ẩm', type: 'Humidity', val: '53.2', unit: '%', date: '2026-08-16', time: '09:20:10', status: 'Normal' },
+            { id: '#012', name: 'Độ sáng', type: 'Light', val: '238.2', unit: 'lux', date: '2026-08-16', time: '09:20:11', status: 'Normal' },
+            { id: '#013', name: 'Nhiệt độ', type: 'Temperature', val: '27.0', unit: '°C', date: '2026-08-15', time: '09:20:10', status: 'Normal' },
+            { id: '#014', name: 'Độ ẩm', type: 'Humidity', val: '50.7', unit: '%', date: '2026-08-15', time: '09:20:10', status: 'Normal' },
+            { id: '#015', name: 'Nhiệt độ', type: 'Temperature', val: '27.6', unit: '°C', date: '2026-08-17', time: '14:05:22', status: 'Normal' },
+            { id: '#016', name: 'Độ ẩm', type: 'Humidity', val: '51.2', unit: '%', date: '2026-08-17', time: '14:05:22', status: 'Normal' },
+            { id: '#017', name: 'Độ sáng', type: 'Light', val: '245.8', unit: 'lux', date: '2026-08-17', time: '14:05:23', status: 'Normal' },
+            { id: '#018', name: 'Nhiệt độ', type: 'Temperature', val: '27.8', unit: '°C', date: '2026-08-17', time: '14:10:45', status: 'Normal' },
+            { id: '#019', name: 'Độ ẩm', type: 'Humidity', val: '50.9', unit: '%', date: '2026-08-17', time: '14:10:45', status: 'Normal' },
+            { id: '#020', name: 'Độ sáng', type: 'Light', val: '240.3', unit: 'lux', date: '2026-08-17', time: '14:10:46', status: 'Normal' },
+            { id: '#021', name: 'Nhiệt độ', type: 'Temperature', val: '26.8', unit: '°C', date: '2026-08-16', time: '16:30:15', status: 'Normal' },
+            { id: '#022', name: 'Độ ẩm', type: 'Humidity', val: '52.5', unit: '%', date: '2026-08-16', time: '16:30:15', status: 'Normal' },
+            { id: '#023', name: 'Độ sáng', type: 'Light', val: '235.7', unit: 'lux', date: '2026-08-16', time: '16:30:16', status: 'Normal' },
+            { id: '#024', name: 'Nhiệt độ', type: 'Temperature', val: '26.5', unit: '°C', date: '2026-08-14', time: '08:45:30', status: 'Normal' },
+            { id: '#025', name: 'Độ ẩm', type: 'Humidity', val: '54.0', unit: '%', date: '2026-08-14', time: '08:45:30', status: 'Normal' },
+            { id: '#026', name: 'Độ sáng', type: 'Light', val: '228.9', unit: 'lux', date: '2026-08-14', time: '08:45:31', status: 'Normal' },
+            { id: '#027', name: 'Nhiệt độ', type: 'Temperature', val: '27.3', unit: '°C', date: '2026-08-13', time: '11:15:44', status: 'Normal' },
+            { id: '#028', name: 'Độ ẩm', type: 'Humidity', val: '51.5', unit: '%', date: '2026-08-13', time: '11:15:44', status: 'Normal' },
+            { id: '#029', name: 'Độ sáng', type: 'Light', val: '242.6', unit: 'lux', date: '2026-08-13', time: '11:15:45', status: 'Normal' },
+            { id: '#030', name: 'Nhiệt độ', type: 'Temperature', val: '26.7', unit: '°C', date: '2026-08-12', time: '15:00:10', status: 'Normal' },
+        ];
+
+        let sensorPage = 1;
+        const sensorPerPage = 15;
+
+        function renderSensorTable() {
+            const searchTerm = document.getElementById('sensor-search').value.toLowerCase();
+            const typeFilter = document.getElementById('sensor-type').value;
+            const fromDate = document.getElementById('sensor-from-date').value;
+            const toDate = document.getElementById('sensor-to-date').value;
+            const sortOrder = document.getElementById('sensor-sort').value;
+
+            let filtered = sensorData.filter(item => {
+                const matchName = item.name.toLowerCase().includes(searchTerm) || item.id.toLowerCase().includes(searchTerm);
+                const matchType = typeFilter === 'all' || item.type.toLowerCase() === typeFilter;
+                const matchDate = (!fromDate || item.date >= fromDate) && (!toDate || item.date <= toDate);
+                return matchName && matchType && matchDate;
+            });
+
+            filtered.sort((a, b) => {
+                const dateTimeA = a.date + ' ' + a.time;
+                const dateTimeB = b.date + ' ' + b.time;
+                if (sortOrder === 'asc') {
+                    return dateTimeA.localeCompare(dateTimeB);
+                } else {
+                    return dateTimeB.localeCompare(dateTimeA);
+                }
+            });
+
+            const totalPages = Math.ceil(filtered.length / sensorPerPage);
+            if (sensorPage > totalPages) sensorPage = totalPages || 1;
+            const start = (sensorPage - 1) * sensorPerPage;
+            const pageData = filtered.slice(start, start + sensorPerPage);
+            const tbody = document.getElementById('sensor-table-body');
+            tbody.innerHTML = pageData.map(row => `
+                <tr>
+                    <td><strong style="color:#94a3b8;">${row.id}</strong></td>
+                    <td>${row.name}</td>
+                    <td>${row.type}</td>
+                    <td>${row.val}</td>
+                    <td>${row.unit}</td>
+                    <td>${row.date}</td>
+                    <td>${row.time}</td>
+                    <td><span class="status-badge badge-on">${row.status}</span></td>
+                </tr>
+            `).join('');
+            renderPagination('sensor-pagination', sensorPage, totalPages, (page) => { sensorPage = page; renderSensorTable(); });
+        }
+
+        function resetSensorFilters() {
+            document.getElementById('sensor-search').value = '';
+            document.getElementById('sensor-type').value = 'all';
+            document.getElementById('sensor-from-date').value = '';
+            document.getElementById('sensor-to-date').value = '';
+            document.getElementById('sensor-sort').value = 'desc';
+            sensorPage = 1;
+            renderSensorTable();
+        }
+
+        // ===== ACTION HISTORY =====
+        const actionData = [
+            { id: '#001', device: 'LED 01', action: 'ON', status: 'ON', date: '2026-08-17', time_action: '13:12:10', time_status: '13:12:11' },
+            { id: '#002', device: 'Quạt', action: 'OFF', status: 'OFF', date: '2026-08-17', time_action: '13:08:24', time_status: '13:08:25' },
+            { id: '#003', device: 'Điều hòa', action: 'ON', status: 'ON', date: '2026-08-17', time_action: '12:55:41', time_status: '12:55:42' },
+            { id: '#004', device: 'LED 01', action: 'OFF', status: 'OFF', date: '2026-08-16', time_action: '17:31:02', time_status: '17:31:03' },
+            { id: '#005', device: 'Quạt', action: 'ON', status: 'LOADING', date: '2026-08-16', time_action: '15:10:14', time_status: '15:10:14' },
+            { id: '#006', device: 'Điều hòa', action: 'OFF', status: 'OFF', date: '2026-08-16', time_action: '10:22:33', time_status: '10:22:34' },
+            { id: '#007', device: 'LED 01', action: 'ON', status: 'ON', date: '2026-08-16', time_action: '09:16:40', time_status: '09:16:41' },
+            { id: '#008', device: 'Quạt', action: 'ON', status: 'ON', date: '2026-08-15', time_action: '08:45:22', time_status: '08:45:23' },
+            { id: '#009', device: 'Điều hòa', action: 'ON', status: 'LOADING', date: '2026-08-15', time_action: '08:30:05', time_status: '08:30:06' },
+            { id: '#010', device: 'LED 01', action: 'OFF', status: 'OFF', date: '2026-08-15', time_action: '07:55:12', time_status: '07:55:13' },
+            { id: '#011', device: 'LED 01', action: 'ON', status: 'ON', date: '2026-08-17', time_action: '14:02:11', time_status: '14:02:12' },
+            { id: '#012', device: 'Quạt', action: 'OFF', status: 'OFF', date: '2026-08-17', time_action: '14:01:33', time_status: '14:01:34' },
+            { id: '#013', device: 'Điều hòa', action: 'ON', status: 'ON', date: '2026-08-17', time_action: '13:58:20', time_status: '13:58:21' },
+            { id: '#014', device: 'LED 01', action: 'OFF', status: 'OFF', date: '2026-08-17', time_action: '13:45:09', time_status: '13:45:10' },
+            { id: '#015', device: 'Quạt', action: 'ON', status: 'LOADING', date: '2026-08-17', time_action: '13:40:55', time_status: '13:40:56' },
+            { id: '#016', device: 'Điều hòa', action: 'OFF', status: 'OFF', date: '2026-08-16', time_action: '18:10:42', time_status: '18:10:43' },
+            { id: '#017', device: 'LED 01', action: 'ON', status: 'ON', date: '2026-08-16', time_action: '18:05:21', time_status: '18:05:22' },
+            { id: '#018', device: 'Quạt', action: 'OFF', status: 'OFF', date: '2026-08-16', time_action: '17:50:17', time_status: '17:50:18' },
+            { id: '#019', device: 'Điều hòa', action: 'ON', status: 'ON', date: '2026-08-16', time_action: '17:42:03', time_status: '17:42:04' },
+            { id: '#020', device: 'LED 01', action: 'ON', status: 'ON', date: '2026-08-16', time_action: '17:40:11', time_status: '17:40:12' },
+            { id: '#021', device: 'Quạt', action: 'ON', status: 'ON', date: '2026-08-15', time_action: '09:20:30', time_status: '09:20:31' },
+            { id: '#022', device: 'Điều hòa', action: 'OFF', status: 'OFF', date: '2026-08-15', time_action: '09:15:45', time_status: '09:15:46' },
+            { id: '#023', device: 'LED 01', action: 'OFF', status: 'OFF', date: '2026-08-15', time_action: '09:10:22', time_status: '09:10:23' },
+            { id: '#024', device: 'Quạt', action: 'OFF', status: 'OFF', date: '2026-08-15', time_action: '08:55:10', time_status: '08:55:11' },
+            { id: '#025', device: 'Điều hòa', action: 'ON', status: 'LOADING', date: '2026-08-14', time_action: '20:30:40', time_status: '20:30:41' },
+            { id: '#026', device: 'LED 01', action: 'ON', status: 'ON', date: '2026-08-14', time_action: '20:25:15', time_status: '20:25:16' },
+            { id: '#027', device: 'Quạt', action: 'ON', status: 'ON', date: '2026-08-14', time_action: '20:20:50', time_status: '20:20:51' },
+            { id: '#028', device: 'Điều hòa', action: 'OFF', status: 'OFF', date: '2026-08-14', time_action: '20:10:05', time_status: '20:10:06' },
+            { id: '#029', device: 'LED 01', action: 'OFF', status: 'OFF', date: '2026-08-13', time_action: '07:30:00', time_status: '07:30:01' },
+            { id: '#030', device: 'Quạt', action: 'ON', status: 'LOADING', date: '2026-08-13', time_action: '07:25:33', time_status: '07:25:34' },
+        ];
+
+        let actionPage = 1;
+        const actionPerPage = 15;
+
+        function renderActionTable() {
+            const deviceFilter = document.getElementById('action-device').value;
+            const statusFilter = document.getElementById('action-status').value;
+            const fromDate = document.getElementById('action-from-date').value;
+            const toDate = document.getElementById('action-to-date').value;
+            const sortOrder = document.getElementById('action-sort').value;
+
+            let filtered = actionData.filter(item => {
+                const matchDevice = deviceFilter === 'all' || item.device === deviceFilter;
+                const matchStatus = statusFilter === 'all' || item.status === statusFilter;
+                const matchDate = (!fromDate || item.date >= fromDate) && (!toDate || item.date <= toDate);
+                return matchDevice && matchStatus && matchDate;
+            });
+
+            filtered.sort((a, b) => {
+                const dateTimeA = a.date + ' ' + a.time_action;
+                const dateTimeB = b.date + ' ' + b.time_action;
+                if (sortOrder === 'asc') {
+                    return dateTimeA.localeCompare(dateTimeB);
+                } else {
+                    return dateTimeB.localeCompare(dateTimeA);
+                }
+            });
+
+            const totalPages = Math.ceil(filtered.length / actionPerPage);
+            if (actionPage > totalPages) actionPage = totalPages || 1;
+            const start = (actionPage - 1) * actionPerPage;
+            const pageData = filtered.slice(start, start + actionPerPage);
+            const tbody = document.getElementById('action-table-body');
+            tbody.innerHTML = pageData.map(row => {
+                let badgeClass = 'badge-on';
+                if (row.status === 'OFF') badgeClass = 'badge-off';
+                if (row.status === 'LOADING') badgeClass = 'badge-loading';
+                return `
+                <tr>
+                    <td><strong style="color:#94a3b8;">${row.id}</strong></td>
+                    <td>${row.device}</td>
+                    <td>${row.action}</td>
+                    <td><span class="status-badge ${badgeClass}">${row.status}</span></td>
+                    <td>${row.date}</td>
+                    <td>${row.time_action}</td>
+                    <td>${row.time_status}</td>
+                </tr>
+                `;
+            }).join('');
+            renderPagination('action-pagination', actionPage, totalPages, (page) => { actionPage = page; renderActionTable(); });
+        }
+
+        function resetActionFilters() {
+            document.getElementById('action-device').value = 'all';
+            document.getElementById('action-status').value = 'all';
+            document.getElementById('action-from-date').value = '';
+            document.getElementById('action-to-date').value = '';
+            document.getElementById('action-sort').value = 'desc';
+            actionPage = 1;
+            renderActionTable();
+        }
+
+        // ===== PAGINATION =====
+        function renderPagination(containerId, currentPage, totalPages, onPageChange) {
+            const container = document.getElementById(containerId);
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+            let html = `<span style="font-size:13px; margin-right:auto; color:#94a3b8;">Trang ${currentPage}/${totalPages}</span>`;
+            for (let i = 1; i <= totalPages; i++) {
+                html += `<button class="${i === currentPage ? 'active' : ''}" onclick="(${onPageChange.toString()})(${i})">${i}</button>`;
+            }
+            container.innerHTML = html;
+        }
+
+        // ===== INIT ON LOAD =====
+        window.onload = function () {
+            document.getElementById('login-page').style.display = 'flex';
+            document.getElementById('app-container').style.display = 'none';
+        };
+    </script>
+</body>
+
+</html>
