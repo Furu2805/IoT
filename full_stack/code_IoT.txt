@@ -1,0 +1,356 @@
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <PubSubClient.h>
+#include <DHT.h>
+#include <ArduinoJson.h>
+#include "secrets.h"
+
+// ==================== CẤU HÌNH MẠNG VÀ TOPIC ====================
+char ssid[] = WIFI_SSID;
+char pass[] = WIFI_PASSWORD;
+
+// Cờ nhớ lệnh ON/OFF
+bool LED1_state = false;
+bool LED2_state = false;
+bool LED3_state = false;
+
+// Cờ ghi nhớ trạng thái CẮM/RÚT phần cứng
+bool LED1_offline = false;
+bool LED2_offline = false;
+bool LED3_offline = false;
+
+// Nếu chưa nhận cấu hình MQTT từ Web, ESP32 sử dụng các giá trị mặc định bên dưới.
+float limit_temp = 30.0;
+float limit_humid = 68.0;
+float limit_light = 100.0;
+float warning_temp_limit = 30.0;
+float warning_humid_limit = 68.0;
+float warning_light_limit = 900.0;
+const unsigned long ALERT_BLINK_INTERVAL = 250; // 250 ms per state = 2 complete blinks per second
+bool warning_alerting[3] = {false, false, false};
+bool warning_blink_state[3] = {false, false, false};
+unsigned long warning_blink_time[3] = {0, 0, 0};
+
+const char* broker = MQTT_BROKER;
+int port = 6969;
+
+const char* topic_sub = "device_control_TL297";
+const char* topic_sub_config = "device_config_TL297";
+const char* topic_pub_sensor = "data_sensors_TL297";
+const char* topic_pub_status = "device_status_TL297";
+
+// ==================== ĐỊNH NGHĨA CHÂN KẾT NỐI ====================
+#define DHTPIN       4
+#define DHTTYPE      DHT11
+
+#define LDR_AO_PIN   34
+
+#define den1         21
+#define den2         22
+#define den3         23
+#define den_alert_temp   26
+#define den_alert_humid  27
+#define den_alert_light  25
+
+#define fb1          35
+#define fb2          32
+#define fb3          33
+
+// ==================== KHỞI TẠO ĐỐI TƯỢNG ====================
+DHT dht(DHTPIN, DHTTYPE);
+WiFiClientSecure espClient;
+PubSubClient client(espClient);
+
+// DASHBOARD - CẢNH BÁO: Tạo trạng thái cảnh báo cho từng LED và đánh dấu lúc cảnh báo vừa kích hoạt.
+void publishAlertLedStatus(const char* deviceId, const char* status, bool activated = false) {
+  StaticJsonDocument<200> doc;
+  doc["device_id"] = deviceId;
+  doc["status"] = status;
+  if (activated) doc["event"] = "activated";
+
+  char buffer[200];
+  serializeJson(doc, buffer);
+  client.publish(topic_pub_status, buffer);
+}
+
+const byte WARNING_LED_COUNT = 3;
+const byte warning_led_pins[WARNING_LED_COUNT] = {
+  den_alert_temp, den_alert_humid, den_alert_light
+};
+const char* warning_device_ids[WARNING_LED_COUNT] = {
+  "warning_temp", "warning_humid", "led4"
+};
+
+void publishAllWarningLedStatus() {
+  for (byte i = 0; i < WARNING_LED_COUNT; i++) {
+    publishAlertLedStatus(
+      warning_device_ids[i],
+      warning_alerting[i] ? "blinking" : "off"
+    );
+  }
+}
+
+// DASHBOARD - CẢNH BÁO: Khi trạng thái đổi, cập nhật GPIO; chỉ đánh dấu activated lúc cảnh báo bắt đầu.
+void setWarningLedState(byte index, bool shouldAlert, unsigned long now) {
+  if (shouldAlert == warning_alerting[index]) return;
+
+  warning_alerting[index] = shouldAlert;
+  warning_blink_state[index] = shouldAlert;
+  warning_blink_time[index] = now;
+  digitalWrite(warning_led_pins[index], shouldAlert ? HIGH : LOW);
+  publishAlertLedStatus(
+    warning_device_ids[index],
+    shouldAlert ? "blinking" : "off",
+    shouldAlert
+  );
+}
+
+void serviceWarningLedBlink(unsigned long now) {
+  for (byte i = 0; i < WARNING_LED_COUNT; i++) {
+    if (!warning_alerting[i] || now - warning_blink_time[i] < ALERT_BLINK_INTERVAL) continue;
+    warning_blink_time[i] = now;
+    warning_blink_state[i] = !warning_blink_state[i];
+    digitalWrite(warning_led_pins[i], warning_blink_state[i] ? HIGH : LOW);
+  }
+}
+
+unsigned long time_truoc = 0;
+bool che_do_tu_dong = true;
+
+// ==================== HÀM ĐỌC VÀ CẬP NHẬT TRẠNG THÁI LED ====================
+// DASHBOARD - ĐIỀU KHIỂN THIẾT BỊ: Kiểm tra output/feedback sau đóng publish on/off/offline về backend.
+// ACTION HISTORY - LUỒNG LỆNH ĐIỀU KHIỂN: Đọc GPIO/feedback rồi publish status làm phản hồi cho backend.
+
+void updateLedState(int ledNumber, int pinOutput, int pinFeedback, bool &stateCmd, bool &stateOffline, bool forcePublish = false) {
+  bool currentCmd = digitalRead(pinOutput);
+  bool currentOffline = stateOffline;
+
+  // Chỉ có thể đo được phần cứng khi chân xuất lệnh đang có điện (HIGH)
+  if (currentCmd == HIGH) {
+    float voltage = (analogRead(pinFeedback) / 4095.0) * 3.3;
+    currentOffline = (voltage > 3.0); // Nếu > 3.0V tức là hở mạch (bị rút/hỏng)
+  }
+
+  // Nếu lệnh thay đổi, hoặc trạng thái cắm/rút thay đổi, hoặc bắt buộc gửi
+  if (currentCmd != stateCmd || currentOffline != stateOffline || forcePublish) {
+    stateCmd = currentCmd;
+    stateOffline = currentOffline;
+
+    String deviceId = "led" + String(ledNumber);
+    String status = currentOffline ? "offline" : (currentCmd ? "on" : "off");
+
+    if (currentOffline) {
+      Serial.println("CANH BAO: " + deviceId + " da bi rut/hong phan cung!");
+    }
+
+    StaticJsonDocument<200> doc;
+    doc["device_id"] = deviceId;
+    doc["status"] = status;
+
+    char buffer[200];
+    serializeJson(doc, buffer);
+    client.publish(topic_pub_status, buffer);
+  }
+}
+
+// ==================== HÀM XỬ LÝ DỮ LIỆU NHẬN TỪ MQTT ====================
+// DASHBOARD - AUTO/MANUAL Callback nhận lệnh mode từ topic điều khiển và gửi ACK về backend.
+// ACTION HISTORY - LUỒNG LỆNH ĐIỀU KHIỂN: MQTT callback nhận lệnh từ backend; phần LED phản hồi status qua updateLedState.
+
+void nhan_data(char* topic, byte* payload, unsigned int length) {
+  StaticJsonDocument<200> doc;
+  DeserializationError error = deserializeJson(doc, payload, length);
+
+  if (error) {
+    Serial.print("Loi parse JSON MQTT: ");
+    Serial.println(error.f_str());
+    return;
+  }
+
+  // DASHBOARD - SỬA NGƯỠNG: Nhận JSON cấu hình từ backend và cập nhật giới hạn Auto cùng cả ba ngưỡng warning.
+  if (String(topic) == topic_sub_config) {
+    if (doc.containsKey("temp"))  limit_temp  = doc["temp"];
+    if (doc.containsKey("humid")) limit_humid = doc["humid"];
+    if (doc.containsKey("light")) limit_light = doc["light"];
+    if (doc.containsKey("warning_temp_limit")) warning_temp_limit = doc["warning_temp_limit"];
+    if (doc.containsKey("warning_humid_limit")) warning_humid_limit = doc["warning_humid_limit"];
+    if (doc.containsKey("warning_light_limit")) warning_light_limit = doc["warning_light_limit"];
+
+    Serial.println("-> Da cap nhat nguong moi tu Web!");
+    Serial.printf("   Auto: Temp > %.1f | Humid > %.1f | Light < %.1f\n", limit_temp, limit_humid, limit_light);
+    Serial.printf("   Warning: Temp > %.1f | Humid > %.1f | Light > %.1f\n", warning_temp_limit, warning_humid_limit, warning_light_limit);
+    return;
+  }
+
+  // 2. Xử lý nhận LỆNH ĐIỀU KHIỂN từ topic_sub
+
+  const char* device_id = doc["device_id"];
+  // DASHBOARD - AUTO/MANUAL Đổi cờ Auto/Manual hoặc trả mode hiện tại theo lệnh.
+  if (doc.containsKey("mode")) {
+    const char* mode = doc["mode"];
+    if (mode == nullptr) return;
+    if (strcmp(mode, "auto") == 0) {
+      che_do_tu_dong = true;
+      client.publish(topic_pub_status, "{\"device_id\":\"system\",\"status\":\"auto\"}");
+      return;
+    }
+    if (strcmp(mode, "manual") == 0) {
+      che_do_tu_dong = false;
+      client.publish(topic_pub_status, "{\"device_id\":\"system\",\"status\":\"manual\"}");
+      return;
+    }
+    if (strcmp(mode, "status") == 0) {
+      client.publish(topic_pub_status, che_do_tu_dong
+        ? "{\"device_id\":\"system\",\"status\":\"auto\"}"
+        : "{\"device_id\":\"system\",\"status\":\"manual\"}");
+      publishAllWarningLedStatus();
+      return;
+    }
+    return;
+  }
+  // DASHBOARD - ĐIỀU KHIỂN THIẾT BỊ:
+  che_do_tu_dong = false;
+  bool targetStatus = doc["status"] | false;
+
+  if (strcmp(device_id, "led1") == 0) {
+    digitalWrite(den1, targetStatus ? HIGH : LOW);
+    updateLedState(1, den1, fb1, LED1_state, LED1_offline, true);
+  }
+  else if (strcmp(device_id, "led2") == 0) {
+    digitalWrite(den2, targetStatus ? HIGH : LOW);
+    updateLedState(2, den2, fb2, LED2_state, LED2_offline, true);
+  }
+  else if (strcmp(device_id, "led3") == 0) {
+    digitalWrite(den3, targetStatus ? HIGH : LOW);
+    updateLedState(3, den3, fb3, LED3_state, LED3_offline, true);
+  }
+}
+
+// ==================== HÀM KẾT NỐI WIFI VÀ MQTT ====================
+void connectWifi() {
+  Serial.print("Dang ket noi wifi...");
+  WiFi.begin(ssid, pass);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWifi ok!");
+}
+
+void connectMQTT() {
+  while (!client.connected()) {
+    if (WiFi.status() != WL_CONNECTED) connectWifi();
+
+    Serial.print("Dang ket noi broker SSL...");
+    if (client.connect("ESP32_Node_TL297", MQTT_USERNAME, MQTT_PASSWORD)) {
+      Serial.println("Thanh cong!");
+      client.subscribe(topic_sub);
+      client.subscribe(topic_sub_config);
+
+      client.publish(topic_pub_status, che_do_tu_dong
+        ? "{\"device_id\":\"system\",\"status\":\"auto\"}"
+        : "{\"device_id\":\"system\",\"status\":\"manual\"}");
+      publishAllWarningLedStatus();
+    } else {
+      Serial.print("Loi, ma loi = ");
+      Serial.println(client.state());
+      delay(2000);
+    }
+  }
+}
+
+// ==================== HÀM SETUP ====================
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(den1, OUTPUT);
+  pinMode(den2, OUTPUT);
+  pinMode(den3, OUTPUT);
+  pinMode(den_alert_temp, OUTPUT);
+  pinMode(den_alert_humid, OUTPUT);
+  pinMode(den_alert_light, OUTPUT);
+
+  pinMode(fb1, INPUT);
+  pinMode(fb2, INPUT);
+  pinMode(fb3, INPUT);
+  pinMode(LDR_AO_PIN, INPUT);
+
+  digitalWrite(den1, LOW);
+  digitalWrite(den2, LOW);
+  digitalWrite(den3, LOW);
+  digitalWrite(den_alert_temp, LOW);
+  digitalWrite(den_alert_humid, LOW);
+  digitalWrite(den_alert_light, LOW);
+
+  LED1_state = digitalRead(den1);
+  LED2_state = digitalRead(den2);
+  LED3_state = digitalRead(den3);
+
+  dht.begin();
+  connectWifi();
+
+  espClient.setInsecure();
+  client.setServer(broker, port);
+  client.setCallback(nhan_data);
+}
+
+// ==================== HÀM LOOP ====================
+// : Vòng lặp định kỳ đọc cảm biến, đóng gói JSON và gửi MQTT.
+void loop() {
+  if (!client.connected()) {
+    connectMQTT();
+  }
+  client.loop();
+
+  unsigned long hien_tai = millis();
+  // DASHBOARD - CẢNH BÁO: xử lí cảnh báo nhấp nháy đèn liên tục
+  serviceWarningLedBlink(hien_tai);
+
+  // DASHBOARD - REALTIME: Lấy một mẫu nhiệt độ, độ ẩm và ánh sáng mỗi 2 giây.
+  if (hien_tai - time_truoc >= 2000) {
+    time_truoc = hien_tai;
+
+    float nhiet_do = dht.readTemperature();
+    float do_am = dht.readHumidity();
+    int ldr_raw = analogRead(LDR_AO_PIN);
+    float anh_sang = map(ldr_raw, 0, 4095, 1000, 0);
+
+    if (isnan(nhiet_do) || isnan(do_am)) {
+      nhiet_do = 25.5;
+      do_am = 62.0;
+    }
+
+    // DASHBOARD - CẢNH BÁO: So sánh mỗi mẫu đo với ngưỡng warning; xử lý này chạy cả ở Auto lẫn Manual.
+    setWarningLedState(0, nhiet_do > warning_temp_limit, hien_tai);
+    setWarningLedState(1, do_am > warning_humid_limit, hien_tai);
+    setWarningLedState(2, anh_sang > warning_light_limit, hien_tai);
+
+    // Điều khiển tự động theo biến ngưỡng linh hoạt
+    if (che_do_tu_dong) {
+      bool target1 = (nhiet_do > limit_temp);
+      bool target2 = (do_am > limit_humid);
+      bool target3 = (anh_sang < limit_light);
+
+      digitalWrite(den1, target1 ? HIGH : LOW);
+      digitalWrite(den2, target2 ? HIGH : LOW);
+      digitalWrite(den3, target3 ? HIGH : LOW);
+    }
+
+    // Tự động kiểm tra phần cứng và cập nhật trạng thái
+    updateLedState(1, den1, fb1, LED1_state, LED1_offline);
+    updateLedState(2, den2, fb2, LED2_state, LED2_offline);
+    updateLedState(3, den3, fb3, LED3_state, LED3_offline);
+
+    StaticJsonDocument<200> sensorDoc;
+    sensorDoc["temp"] = serialized(String(nhiet_do, 1));
+    sensorDoc["humid"] = serialized(String(do_am, 1));
+    sensorDoc["light"] = serialized(String(anh_sang, 1));
+
+    char buffer[200];
+    serializeJson(sensorDoc, buffer); // chuyển object json sensorDoc thành chuỗi json dạng văn bản buffer
+    client.publish(topic_pub_sensor, buffer);
+
+    Serial.print("Gui sensor: ");
+    Serial.println(buffer);
+  }
+}

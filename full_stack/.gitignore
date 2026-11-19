@@ -1,0 +1,8 @@
+node_modules/
+backend/.env
+frontend/.env
+frontend/.env.*
+frontend/dist/
+frontend/coverage/
+secrets.h
+*.local
