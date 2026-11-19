@@ -241,6 +241,30 @@ API riêng tư yêu cầu JWT Bearer. Firmware và Backend tự kết nối lạ
 
 Hệ thống có các trang đăng nhập, Dashboard/biểu đồ, Sensor Data, điều khiển LED, Action History và Profile. Dashboard thể hiện ba thông số môi trường, trạng thái kết nối và thiết bị. Bảng dữ liệu hỗ trợ tìm kiếm/lọc/sắp xếp/phân trang; điều khiển thiết bị nhận phản hồi MQTT; phần mở rộng hiện tại bổ sung cảnh báo ba cảm biến và thống kê lịch sử cảnh báo.
 
+### 6.1 Ảnh giao diện Web
+
+Các ảnh dưới đây là giao diện được trình bày trong báo cáo. Màn hình Dashboard có các công tắc điều khiển LED ở cùng trang; báo cáo không có ảnh chụp riêng cho trang cảnh báo mới.
+
+#### Đăng nhập
+
+![Giao diện đăng nhập Sensor Monitor](docs/screenshots/login.png)
+
+#### Dashboard và điều khiển thiết bị
+
+![Dashboard với thẻ cảm biến, biểu đồ realtime và công tắc thiết bị](docs/screenshots/dashboard.png)
+
+#### Sensor Data
+
+![Bảng dữ liệu cảm biến với tìm kiếm, lọc và phân trang](docs/screenshots/sensor-data.png)
+
+#### Action History
+
+![Lịch sử điều khiển thiết bị](docs/screenshots/action-history.png)
+
+#### Profile
+
+![Trang thông tin Profile và liên kết dự án](docs/screenshots/profile.png)
+
 Mô hình hiện dùng một ESP32 và LED để mô phỏng tải. Giá trị ánh sáng chưa hiệu chuẩn theo lux, độ chính xác cảm biến và khả năng chạy liên tục chưa được đo đầy đủ.
 
 ## 7. Kết luận và hướng phát triển
