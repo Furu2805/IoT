@@ -243,7 +243,7 @@ Hệ thống có các trang đăng nhập, Dashboard/biểu đồ, Sensor Data, 
 
 ### 6.1 Ảnh giao diện Web
 
-Các ảnh dưới đây là giao diện được trình bày trong báo cáo. Màn hình Dashboard có các công tắc điều khiển LED ở cùng trang; báo cáo không có ảnh chụp riêng cho trang cảnh báo mới.
+Ảnh Login, Sensor Data, Action History và Profile được trích từ báo cáo. Ảnh Dashboard bên dưới là ảnh mới được cung cấp, thể hiện chế độ Auto, điều khiển LED và trạng thái cảnh báo của ba cảm biến. Báo cáo không có ảnh chụp riêng cho trang cảnh báo.
 
 #### Đăng nhập
 
@@ -251,7 +251,7 @@ Các ảnh dưới đây là giao diện được trình bày trong báo cáo. M
 
 #### Dashboard và điều khiển thiết bị
 
-![Dashboard với thẻ cảm biến, biểu đồ realtime và công tắc thiết bị](docs/screenshots/dashboard.png)
+![Dashboard mới với chế độ Auto, biểu đồ realtime, công tắc thiết bị và ba thẻ cảnh báo](docs/screenshots/dashboard.png)
 
 #### Sensor Data
 
