@@ -261,10 +261,6 @@ Hệ thống có các trang đăng nhập, Dashboard/biểu đồ, Sensor Data, 
 
 ![Lịch sử điều khiển thiết bị](docs/screenshots/action-history.png)
 
-#### Profile
-
-![Trang thông tin Profile và liên kết dự án](docs/screenshots/profile.png)
-
 Mô hình hiện dùng một ESP32 và LED để mô phỏng tải. Giá trị ánh sáng chưa hiệu chuẩn theo lux, độ chính xác cảm biến và khả năng chạy liên tục chưa được đo đầy đủ.
 
 ## 7. Kết luận và hướng phát triển
